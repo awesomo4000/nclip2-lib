@@ -57,6 +57,7 @@ fn getBackendModule() type {
     return switch (builtin.os.tag) {
         .linux => @import("backends/linux.zig"),
         .macos => @import("backends/macos.zig"),
+        .windows => @import("backends/windows.zig"),
         else => @import("backends/fallback.zig"),
     };
 }

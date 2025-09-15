@@ -5,7 +5,7 @@ fn addPlatformDependencies(module: *std.Build.Module, target: std.Build.Resolved
     switch (target.result.os.tag) {
         .linux => {
             // Add wlr-data-control protocol implementation for Linux only
-            module.addCSourceFile(.{ 
+            module.addCSourceFile(.{
                 .file = b.path("src/wlr_protocol.c"),
                 .flags = &.{},
             });
@@ -18,6 +18,11 @@ fn addPlatformDependencies(module: *std.Build.Module, target: std.Build.Resolved
             module.link_libc = true;
             module.linkFramework("AppKit", .{});
             module.linkFramework("Foundation", .{});
+        },
+        .windows => {
+            module.link_libc = true;
+            module.linkSystemLibrary("user32", .{});
+            module.linkSystemLibrary("kernel32", .{});
         },
         else => {
             module.link_libc = true;
@@ -124,6 +129,33 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(macos_write_exe);
 
+    // Windows read example
+    const windows_read_exe = b.addExecutable(.{
+        .name = "windows-read",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("examples/windows_read.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "clipboard", .module = clipboard_mod },
+            },
+        }),
+    });
+    b.installArtifact(windows_read_exe);
+
+    // Windows write example
+    const windows_write_exe = b.addExecutable(.{
+        .name = "windows-write",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("examples/windows_write.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "clipboard", .module = clipboard_mod },
+            },
+        }),
+    });
+    b.installArtifact(windows_write_exe);
 
     // Run commands
     const run_wayland_read_cmd = b.addRunArtifact(wayland_read_exe);
@@ -157,7 +189,15 @@ pub fn build(b: *std.Build) void {
     const run_macos_write_step = b.step("run-macos-write", "Write text to clipboard via macOS");
     run_macos_write_step.dependOn(&run_macos_write_cmd.step);
 
+    const run_windows_read_cmd = b.addRunArtifact(windows_read_exe);
+    if (b.args) |args| run_windows_read_cmd.addArgs(args);
+    const run_windows_read_step = b.step("run-windows-read", "Run the Windows clipboard reader");
+    run_windows_read_step.dependOn(&run_windows_read_cmd.step);
 
+    const run_windows_write_cmd = b.addRunArtifact(windows_write_exe);
+    if (b.args) |args| run_windows_write_cmd.addArgs(args);
+    const run_windows_write_step = b.step("run-windows-write", "Write text to clipboard via Windows");
+    run_windows_write_step.dependOn(&run_windows_write_cmd.step);
 
     // Tests
     const lib_tests = b.addTest(.{
